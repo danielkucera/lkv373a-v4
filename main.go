@@ -364,7 +364,7 @@ func msgHandler(src *net.UDPAddr, n int, p []byte) {
 	}
 
 	if len(data) < data_len {
-		log.Println("fragment: advertised len:", data_len, "UDP payload len:", len(data), "timestamp ms?:", data_cnt)
+		//log.Println("fragment: advertised len:", data_len, "UDP payload len:", len(data), "timestamp ms?:", data_cnt)
 		device.LastFragmented = true
 		device.LastFragment = make([]byte, len(b))
 		copy(device.LastFragment, b)
@@ -393,11 +393,11 @@ func msgHandler(src *net.UDPAddr, n int, p []byte) {
 			//log.Println(hex.Dump(data[0:5]))
 		}
 		device.Frame.appendVideoData(&data)
-		go analyzeVideo(data_cnt, device.Frame.VData)
+		//go analyzeVideo(data_cnt, device.Frame.VData)
 	} else if t == 0x00 { //video00
 		log.Println("video00", data_cnt)
 		device.Frame.appendVideoData(&data)
-		go analyzeVideo(data_cnt, device.Frame.VData)
+		//go analyzeVideo(data_cnt, device.Frame.VData)
 	} else if t == 0x81 { //audio
 		if len(data) != 576 {
 			log.Println("audio packet len != 576, len: ", len(data))
