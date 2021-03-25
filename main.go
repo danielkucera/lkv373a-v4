@@ -72,6 +72,21 @@ func (f *Frame) appendVideoData(data *[]byte) {
 	}
 }
 
+func (f *Frame) appendAudioData(data *[]byte) {
+	if f.AData == nil {
+		var out []byte
+		out = make([]byte, len(*data))
+		copy(out, *data)
+		f.AData = &out
+	} else {
+		var out []byte
+		out = make([]byte, len(*data)+len(*f.AData))
+		copy(out, *f.AData)
+		copy(out[len(*f.AData):], *data)
+		f.AData = &out
+	}
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
@@ -297,13 +312,6 @@ func decrypt(data *[]byte, n int) {
 	return
 }
 
-func copyData(data []byte) *[]byte {
-	var out []byte
-	out = make([]byte, len(data))
-	copy(out, data)
-	return &out
-}
-
 func analyzeVideo(data_cnt int, data *[]byte) {
 	NALUcnt := bytes.Count(*data, []byte{ 0, 0, 0, 1 })
 	hd := hex.Dump((*data)[0:5])[:30]
@@ -396,7 +404,7 @@ func msgHandler(src *net.UDPAddr, n int, p []byte) {
 			return
 		}
 		decrypt(&data, 576)
-		device.Frame.AData = copyData(data)
+		device.Frame.appendAudioData(&data)
 		//log.Println("audio decrypted")
 	} else if t == 0x82 { //status
 		//log.Println("status?")
