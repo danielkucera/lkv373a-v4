@@ -57,6 +57,21 @@ func NewFrame(frame_n int) *Frame {
 	}
 }
 
+func (f *Frame) appendVideoData(data *[]byte) {
+	if f.VData == nil {
+		var out []byte
+		out = make([]byte, len(*data))
+		copy(out, *data)
+		f.VData = &out
+	} else {
+		var out []byte
+		out = make([]byte, len(*data)+len(*f.VData))
+		copy(out, *f.VData)
+		copy(out[len(*f.VData):], *data)
+		f.VData = &out
+	}
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
@@ -289,6 +304,14 @@ func copyData(data []byte) *[]byte {
 	return &out
 }
 
+func analyzeVideo(data_cnt int, data *[]byte) {
+	NALUcnt := bytes.Count(*data, []byte{ 0, 0, 0, 1 })
+	hd := hex.Dump((*data)[0:5])[:30]
+	if (NALUcnt < 100) {
+		log.Printf("%s cnt: %d len: %d nalus: %d\n", hd, data_cnt, len(*data), NALUcnt)
+	}
+}
+
 func msgHandler(src *net.UDPAddr, n int, p []byte) {
 	var b []byte
 
@@ -352,20 +375,21 @@ func msgHandler(src *net.UDPAddr, n int, p []byte) {
 	if t == 0x80 { //video80
 		crypt_len := (data_len / 16) * 16
 		if crypt_len > 1024 {
-			crypt_len = 1024
+			crypt_len = 16*64
 		}
 		if crypt_len < 1024 {
-			log.Println("crypt_len:", crypt_len)
+			//log.Println("crypt_len:", crypt_len)
 		}
 		decrypt(&data, crypt_len)
 		if (data[4]) != 0x21 {
 			//log.Println(hex.Dump(data[0:5]))
 		}
-		device.Frame.VData = copyData(data)
+		device.Frame.appendVideoData(&data)
+		go analyzeVideo(data_cnt, device.Frame.VData)
 	} else if t == 0x00 { //video00
-		//log.Println("video00", data_cnt)
-		//log.Println(hex.Dump(data[0:5]))
-		device.Frame.VData = copyData(data)
+		log.Println("video00", data_cnt)
+		device.Frame.appendVideoData(&data)
+		go analyzeVideo(data_cnt, device.Frame.VData)
 	} else if t == 0x81 { //audio
 		if len(data) != 576 {
 			log.Println("audio packet len != 576, len: ", len(data))
@@ -392,6 +416,9 @@ func serveMulticastUDP(a string, h func(*net.UDPAddr, int, []byte)) {
 		log.Fatal(err)
 	}
 	l, err := net.ListenMulticastUDP("udp", nil, addr)
+	if err != nil {
+		panic(err)
+	}
 	l.SetReadBuffer(2 * 1024 * 1024)
 	b := make([]byte, maxDatagramSize)
 	for {
